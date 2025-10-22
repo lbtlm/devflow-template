@@ -1,0 +1,54 @@
+name: DevFlow Build Check
+
+on:
+  push:
+    paths:
+      - ".devflow/queue/build-check.json"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install pnpm dependencies
+        if: hashFiles('pnpm-lock.yaml') != ''
+        run: pnpm install --frozen-lockfile
+
+      - name: Run DevFlow build checks
+        run: node .devflow/tools/build-check.mjs --output=.devflow/steps/step-06.build-check.json
+
+      - name: Clear build queue
+        run: rm -f .devflow/queue/build-check.json
+
+      - name: Commit build results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+        # Commit is attempted in the next step to allow a clean "no-op" exit
+
+      - name: Push updates
+        run: |
+          git add .devflow/steps/step-06.build-check.json .devflow/queue/build-check.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "ci(devflow): update step-06.build-check.json [skip ci]"
+          git push

@@ -1,0 +1,14 @@
+{
+  "activeSession": null,
+  "currentStep": null,
+  "completed": [],
+  "suggestedNext": "step-01.requirements",
+  "lastBuildStatus": null,
+  "metrics": {
+    "totalSteps": 7,
+    "passed": 0,
+    "failed": 0,
+    "warnings": 0
+  },
+  "updatedAt": null
+}
