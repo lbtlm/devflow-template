@@ -1,23 +1,16 @@
 {
-  "name": "@lbtlm/devflow-codex",
-  "version": "0.1.1",
+  "name": "@lbtlm/devflow-template",
+  "version": "0.1.0",
   "description": "DevFlow scaffolding CLI for Codex orchestrations.",
   "type": "module",
   "bin": {
-    "devflow": "./dist/cli/init.js"
+    "devflow": "./dist/cli/init.js",
+    "devflow-template": "./dist/cli/init.js"
   },
   "files": [
     "dist",
     "assets/template"
   ],
-  "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "dev": "tsx src/cli/init.ts --help",
-    "typecheck": "tsc --noEmit",
-    "lint": "pnpm run typecheck",
-    "test": "vitest run",
-    "prepare": "pnpm run build"
-  },
   "keywords": [
     "devflow",
     "codex",
@@ -33,11 +26,17 @@
     "url": "https://github.com/lbtlm/devflow-template/issues"
   },
   "homepage": "https://github.com/lbtlm/devflow-template#readme",
-  "packageManager": "pnpm@9.12.0",
   "devDependencies": {
     "@types/node": "^20.14.9",
     "tsx": "^4.16.0",
     "typescript": "^5.5.4",
     "vitest": "^1.6.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli/init.ts --help",
+    "typecheck": "tsc --noEmit",
+    "lint": "pnpm run typecheck",
+    "test": "vitest run"
   }
 }

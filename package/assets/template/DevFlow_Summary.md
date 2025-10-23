@@ -120,7 +120,7 @@ CI 会自动识别根目录文件（`package.json`、`go.mod` 等）来确定检
 - NPM 包名：`@lbtlm/devflow-template`  
 - 新项目可通过：
   ```bash
-  pnpm dlx @lbtlm/devflow-template devflow
+  pnpm dlx @lbtlm/devflow-template devflow init
   ```
   将 `.devflow/` 与 `.github/workflows/` 初始化到本地仓库。
 

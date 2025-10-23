@@ -1,0 +1,8 @@
+{
+  "intent": null,
+  "detectedAt": null,
+  "preset": null,
+  "matchedKeywords": [],
+  "recommendations": [],
+  "codexPrompt": "等待 Codex 根据对话识别场景或通过 devflow wizard 生成提示。"
+}

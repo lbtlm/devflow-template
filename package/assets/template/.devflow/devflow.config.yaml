@@ -1,0 +1,51 @@
+version: 1
+name: devflow-template
+description: >
+  默认 DevFlow 七步编排流程，供 Codex 在仓库内持续化生成步骤产物与状态。
+defaults:
+  bootstrapPrompt: .devflow/bootstrap/codex-start.md
+  queueFile: .devflow/queue/build-check.json
+  stepDirectory: .devflow/steps
+steps:
+  - id: step-01
+    type: requirements
+    title: 需求澄清
+    output: .devflow/steps/step-01.requirements.json
+    summary: 明确目标、约束以及验收标准。
+  - id: step-02
+    type: api-contract
+    title: 接口契约
+    output: .devflow/steps/step-02.api-contract.json
+    summary: 设计 API、DTO 与数据模型。
+  - id: step-03
+    type: plan
+    title: 开发计划
+    output: .devflow/steps/step-03.plan.json
+    summary: 拆解任务、排序优先级并识别风险。
+  - id: step-04
+    type: todos
+    title: 任务清单
+    output: .devflow/steps/step-04.todos.json
+    summary: 记录可执行任务、依赖关系与负责角色。
+  - id: step-05
+    type: impl
+    title: 实现
+    output: .devflow/steps/step-05.impl.json
+    summary: 根据 todos 修改代码、记录实现细节与关键决策。
+  - id: step-06
+    type: build-check
+    title: 构建校验
+    output: .devflow/steps/step-06.build-check.json
+    summary: 触发并追踪构建/类型/静态检查结果。
+  - id: step-07
+    type: summary
+    title: 总结复盘
+    output: .devflow/steps/step-07.summary.json
+    summary: 汇总产出、经验与后续行动。
+buildCheck:
+  tool: .devflow/tools/build-check.mjs
+  queue: .devflow/queue/build-check.json
+schema:
+  step: .devflow/schema/step.schema.json
+state:
+  file: .devflow/state.json

@@ -11,6 +11,7 @@
 .devflow/
   ├── devflow.config.yaml      # 全局配置与默认流程
   ├── state.json               # 当前会话状态（丰富状态）
+  ├── preset.json              # 交互式向导输出的场景提示
   ├── schema/
   │   └── step.schema.json     # .devflow/steps/*.json 结构定义
   ├── tools/
@@ -18,6 +19,7 @@
   ├── bootstrap/
   │   └── codex-start.md       # 启动提示（供 Codex 会话使用）
   ├── queue/                   # 用于触发 CI 构建检查的请求文件
+  ├── reports/                 # 自动生成的回顾报告
 .devflow/steps/
   └── .keep                    # 存放各阶段 JSON 产物
 .github/
@@ -76,7 +78,7 @@
 ---
 
 ## 五、Codex 内嵌驱动机制
-- Codex 直接读取 `.devflow/state.json` 与最近的 `.devflow/steps/step-XX.*.json`。  
+- Codex 直接读取 `.devflow/state.json`、`.devflow/preset.json` 与最近的 `.devflow/steps/step-XX.*.json`。  
 - 在阶段切换时自动提示：「是否生成 step-0N.<type>.json？」（混合模式）。  
 - 用户确认后，Codex 生成 JSON 文件并更新 `state.json`。  
 - 到第六步时：Codex 创建 `.devflow/queue/build-check.json` 触发 CI；  
@@ -106,27 +108,36 @@ CI 会自动识别根目录文件（`package.json`、`go.mod` 等）来确定检
 
 ---
 
-## 八、模板与初始化
+## 八、历史归档与重置
+- 使用 `devflow cleanup` 可归档或清理 `.devflow/steps/*.json`
+- 默认写入 `.devflow/history/<timestamp>/` 并重置 `state.json`、`preset.json`、清空 `queue/`
+- `--purge` 跳过归档直接删除，`--dry-run` 仅模拟操作
+
+---
+
+## 九、模板与初始化
 - 模板仓库名：`lbtlm/devflow-template`  
 - NPM 包名：`@lbtlm/devflow-template`  
 - 新项目可通过：
   ```bash
-  pnpm dlx @lbtlm/devflow-template init
+  pnpm dlx @lbtlm/devflow-template devflow
   ```
   将 `.devflow/` 与 `.github/workflows/` 初始化到本地仓库。
 
 ---
 
-## 九、使用方法（手动交由 Codex 执行）
+## 十、使用方法（手动交由 Codex 执行）
 1. 在 Codex 新对话中连接到项目仓库。  
 2. 将 `.devflow/bootstrap/codex-start.md` 的全部内容粘贴为第一条消息。  
-3. 紧接着输入需求说明（自然语言即可）。  
-4. Codex 将自动创建 `.devflow/steps/step-01.requirements.json` 并提示下一步。  
-5. 确认后逐步推进直至 `summary` 完成。  
+3. 直接描述你的目标（如「我要修复支付 bug」或「请帮我做架构规划」），Codex 会自动识别并更新 `.devflow/preset.json`。  
+4. 若需要在会话外先规划，也可以手动运行 `devflow wizard "<描述>"`（或 `pnpm dlx @lbtlm/devflow-template devflow wizard "<描述>"`）。  
+5. Codex 将自动创建 `.devflow/steps/step-01.requirements.json` 并提示下一步。  
+6. 确认后逐步推进直至 `summary` 完成；如需阶段总结或下一步建议，可让 Codex 运行 `devflow review`（必要时可执行 `pnpm dlx @lbtlm/devflow-template devflow review`） 并参考 `.devflow/reports/`。  
+7. 结束时按需触发清理流程，归档历史并复位状态。  
 
 ---
 
-## 十、后续扩展方向
+## 十一、后续扩展方向
 - 增加「文档生成」「测试覆盖率统计」等 Agent。  
 - 接入跨仓库记忆（读取其他项目的 `state.json`）。  
 - 提供图形化可视化界面（DevFlow Dashboard）。

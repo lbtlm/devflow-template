@@ -4,8 +4,8 @@ Codex 开发编排工具脚手架，通过一个 CLI 命令即可把 DevFlow 七
 
 ## 使用 CLI 生成脚手架
 ```bash
-pnpm dlx @lbtlm/devflow-template devflow  # 新旧项目通用脚手架命令
-cd my-project (如在新目录中执行)
+# 等价命令：pnpm dlx @lbtlm/devflow-template devflow init my-project
+pnpm dlx @lbtlm/devflow-template devflow init my-project
 cd my-project
 ```
 
@@ -21,13 +21,12 @@ CLI 支持：
 - `--dry-run`：仅预览将要写入的文件
 - `--list`：列出模板包含的全部文件
 - `--force`：覆盖已存在文件
-- `--yes`：对提示自动回答「是」，适合脚本化使用
 
 ## 场景识别与向导
 - 在 Codex 对话中说出「修复 bug」「做架构规划」「补充测试」等关键词时，Codex 会自动更新 `.devflow/preset.json` 并引用对应提示。
 - 如需在外层预先规划，也可使用交互式向导：
   ```bash
-  devflow wizard "修复支付接口的 bug 并补充测试"  # 未全局安装时可使用 pnpm dlx @lbtlm/devflow-template devflow wizard
+  pnpm dlx @lbtlm/devflow-template devflow wizard "修复支付接口的 bug 并补充测试"
   ```
   向导会写入场景信息，你可通过 `-o <path>` 调整输出位置。
 

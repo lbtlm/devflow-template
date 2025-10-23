@@ -1,10 +1,16 @@
 #!/usr/bin/env node
 
 import { createRequire } from 'node:module';
-import { resolve } from 'node:path';
+import { createInterface } from 'node:readline/promises';
+import { stdin as input, stdout as output } from 'node:process';
+import { promises as fs } from 'node:fs';
+import { resolve, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { logger } from '../shared/logger.js';
 import { copyTemplate, getTemplateFiles } from '../shared/template.js';
+import { runWizard } from './wizard.js';
+import { runCleanup } from './cleanup.js';
+import { runReview } from './review.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = resolve(__filename, '..');
@@ -15,30 +21,36 @@ const require = createRequire(import.meta.url);
 const pkg = require('../../package.json') as { version?: string };
 const version: string = typeof pkg.version === 'string' ? pkg.version : '0.0.0';
 
-type CLIOptions = {
+type SetupOptions = {
   destination: string;
   force: boolean;
   dryRun: boolean;
+  yes: boolean;
   list: boolean;
 };
 
 const printHelp = () => {
-  logger.info('DevFlow Template CLI');
+  logger.info('DevFlow CLI');
   logger.info('');
-  logger.info('Usage: devflow-template [options] [target-directory]');
+  logger.info('Usage: devflow [options] [target-directory]');
   logger.info('');
   logger.info('Options:');
-  logger.info('  -f, --force       Overwrite existing files');
-  logger.info('  --dry-run         Preview actions without writing files');
-  logger.info('  --list            List template files and exit');
-  logger.info('  -h, --help        Show help');
-  logger.info('  -v, --version     Show CLI version');
+  logger.info('  -f, --force       覆盖现有文件（不提示）');
+  logger.info('  -y, --yes         对提示自动回答「是」');
+  logger.info('  --dry-run         仅预览将要写入的文件');
+  logger.info('  --list            列出模板包含的全部文件');
+  logger.info('  -h, --help        查看帮助');
+  logger.info('  -v, --version     查看版本信息');
 };
 
-const COMMAND_ALIASES = new Set(['init', 'create']);
+const COMMAND_ALIASES = new Set(['init', 'create', 'setup', 'install']);
 
-export const parseArgs = (argv: string[]): CLIOptions | 'help' | 'version' => {
+export const parseSetupArgs = (argv: string[]): SetupOptions | 'help' | 'version' => {
   const args = [...argv];
+
+  if (args[0] === 'devflow') {
+    args.shift();
+  }
 
   if (args[0] && COMMAND_ALIASES.has(args[0])) {
     args.shift();
@@ -47,6 +59,7 @@ export const parseArgs = (argv: string[]): CLIOptions | 'help' | 'version' => {
   let destination: string | undefined;
   let force = false;
   let dryRun = false;
+  let yes = false;
   let list = false;
 
   for (const arg of args) {
@@ -54,6 +67,10 @@ export const parseArgs = (argv: string[]): CLIOptions | 'help' | 'version' => {
       case '-f':
       case '--force':
         force = true;
+        break;
+      case '-y':
+      case '--yes':
+        yes = true;
         break;
       case '--dry-run':
         dryRun = true;
@@ -83,13 +100,74 @@ export const parseArgs = (argv: string[]): CLIOptions | 'help' | 'version' => {
     destination: destination ?? '.',
     force,
     dryRun,
+    yes,
     list
   };
 };
 
-export const run = async () => {
+const confirm = async (message: string, autoYes: boolean) => {
+  if (autoYes) return true;
+  const rl = createInterface({ input, output });
+  const answer = (await rl.question(`${message} (y/N): `)).trim().toLowerCase();
+  rl.close();
+  return answer === 'y' || answer === 'yes';
+};
+
+const ensureDevflowReady = async (targetDir: string, options: SetupOptions) => {
+  const target = resolve(process.cwd(), targetDir);
+  const devflowDir = join(target, '.devflow');
+  const exists = await fs
+    .stat(devflowDir)
+    .then(() => true)
+    .catch(() => false);
+
+  if (exists && !options.force) {
+    const proceed = await confirm(
+      '检测到已有 .devflow 目录，是否继续覆盖？',
+      options.yes
+    );
+    if (!proceed) {
+      logger.warn('已取消操作。');
+      return { proceed: false, target };
+    }
+  }
+
+  return { proceed: true, target };
+};
+
+const logCopyResults = (results: Awaited<ReturnType<typeof copyTemplate>>) => {
+  if (results.length === 0) {
+    logger.warn('没有写入任何文件（可能全部已存在且未指定 --force）。');
+    return;
+  }
+
+  const copied = results.filter((res) => res.status === 'copied').length;
+  const overwritten = results.filter((res) => res.status === 'overwritten').length;
+  const skipped = results.filter((res) => res.status === 'skipped').length;
+
+  results.forEach((res) => {
+    const status = res.status.padEnd(11, ' ');
+    const reason = res.reason ? ` (${res.reason})` : '';
+    logger.info(`${status} ${res.path}${reason}`);
+  });
+
+  logger.info('');
+  logger.info(`复制文件: ${copied}`);
+  if (overwritten > 0) logger.warn(`覆盖文件: ${overwritten}`);
+  if (skipped > 0) logger.warn(`跳过文件: ${skipped}`);
+};
+
+const printNextSteps = () => {
+  logger.info('');
+  logger.info('DevFlow 脚手架已准备就绪，下一步建议：');
+  logger.info('  1. devflow wizard "描述你的需求"    # 场景识别并写入提示');
+  logger.info('  2. 在 Codex 对话中粘贴 .devflow/bootstrap/codex-start.md');
+  logger.info('  3. 跟随提示推进 steps，并按需使用 devflow review / devflow cleanup');
+};
+
+export const runSetup = async (argv: string[]) => {
   try {
-    const parsed = parseArgs(process.argv.slice(2));
+    const parsed = parseSetupArgs(argv);
 
     if (parsed === 'help') {
       printHelp();
@@ -118,48 +196,48 @@ export const run = async () => {
       }
     }
 
-    const results = await copyTemplate(templateRoot, targetDir, {
+    const { proceed, target } = await ensureDevflowReady(targetDir, parsed);
+    if (!proceed) return;
+
+    const results = await copyTemplate(templateRoot, target, {
       force: parsed.force,
       skipExisting: !parsed.force
     });
 
-    if (results.length === 0) {
-      logger.warn('No files were processed. Check template contents.');
-      return;
-    }
-
-    const copied = results.filter((res) => res.status === 'copied').length;
-    const overwritten = results.filter((res) => res.status === 'overwritten').length;
-    const skipped = results.filter((res) => res.status === 'skipped').length;
-
-    results.forEach((res) => {
-      const status = res.status.padEnd(11, ' ');
-      const reason = res.reason ? ` (${res.reason})` : '';
-      logger.info(`${status} ${res.path}${reason}`);
-    });
-
-    logger.info('');
-    logger.info(`Copied ${copied} file(s).`);
-
-    if (overwritten > 0) {
-      logger.warn(`Overwritten ${overwritten} file(s) due to --force.`);
-    }
-
-    if (skipped > 0) {
-      logger.warn(
-        `Skipped ${skipped} file(s). Use --force to overwrite or remove them manually.`
-      );
-    }
-
-    logger.info('');
-    logger.info('DevFlow scaffolding complete. Next steps:');
-    logger.info('  1. corepack enable pnpm');
-    logger.info('  2. pnpm install (if package.json exists)');
-    logger.info('  3. 在 Codex 会话中粘贴 .devflow/bootstrap/codex-start.md 并输入需求');
+    logCopyResults(results);
+    printNextSteps();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error(message);
     process.exitCode = 1;
+  }
+};
+
+const dispatch = (argv: string[]) => {
+  if (argv.length === 0) {
+    void runSetup([]);
+    return;
+  }
+
+  const [command, ...rest] = argv;
+
+  if (command === 'devflow') {
+    dispatch(rest);
+    return;
+  }
+
+  switch (command) {
+    case 'wizard':
+      void runWizard(rest);
+      return;
+    case 'cleanup':
+      void runCleanup(rest);
+      return;
+    case 'review':
+      void runReview(rest);
+      return;
+    default:
+      void runSetup(argv);
   }
 };
 
@@ -170,5 +248,5 @@ const isDirectExecution = () => {
 };
 
 if (isDirectExecution()) {
-  void run();
+  dispatch(process.argv.slice(2));
 }
